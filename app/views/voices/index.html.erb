@@ -5,11 +5,7 @@
   <%= csrf_meta_tags %>
 </head>
 <body>
-  <div class="flex justify-center mt-4 mx-4">
-    <%= link_to "#{@group.name}:グループ詳細画面", group_path(@group),  class: "btn btn-sm btn-success" %> 
-  </div>
-  <div class="text-center text-xl font-bold mt-10">①音声文字起こしで仮メモ作成</div>
-  
+  <div class="text-center text-xl font-bold mt-10">①音声文字起こしで仮メモ作成</div> 
   <div class="flex justify-center mt-4 mb-4">
     <div class="mr-4">
       <button class="btn btn-outline btn-secondary" id="start-btn">
@@ -41,7 +37,7 @@
     </div>
   <div class="flex justify-center mt-4">
       <div class="mr-4 mb-4">
-        <%= link_to new_group_summary_path(@group) do %>
+        <%= link_to new_summary_path do %>
           <button class="btn btn-secondary">
             <div class="text-xs">
               必要な仮メモをコピー後、<br>
@@ -57,7 +53,7 @@
     <% @voices.each do |voice| %>
       <li class="bg-white shadow-md rounded-lg p-4 w-5/6 max-w-md mb-4">
         <div class="mt-2">
-          <%= link_to voice.content, group_voice_path(@group, voice) %>
+          <%= link_to voice.content, voice_path(voice) %>
         </div>
       </li>
     <% end %>
@@ -104,11 +100,9 @@
 
     stopBtn.onclick = () => {
       recognition.stop();
-      startBtn.disabled = false; // 録音開始ボタンを有効化
-      stopBtn.disabled = true; // 録音停止・保存ボタンを無効化
       if (finalTranscript.trim() !== '') {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        fetch('<%= group_voices_path(@group) %>', {
+          fetch('<%= voices_path %>', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -120,7 +114,7 @@
             resultDiv.innerHTML = '音声データが保存されました';
             setTimeout(() => {
               window.location.reload(); // 保存後、ページをリロードして新しいデータを表示
-            }, 2000);
+            }, 200);
           } else {
             resultDiv.innerHTML = '音声データの保存に失敗しました';
           }
