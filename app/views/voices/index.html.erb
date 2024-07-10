@@ -5,16 +5,19 @@
   <%= csrf_meta_tags %>
 </head>
 <body>
+  <div class="flex justify-center mt-4 mx-4">
+    <%= link_to "#{@group.name}:グループ詳細画面", group_path(@group),  class: "btn btn-sm btn-success" %> 
+  </div>
   <div class="text-center text-xl font-bold mt-10">①音声文字起こしで仮メモ作成</div>
   
   <div class="flex justify-center mt-4 mb-4">
     <div class="mr-4">
-      <button class="btn btn-outline btn-secondary" id="start-record-btn">
+      <button class="btn btn-outline btn-secondary" id="start-btn">
         <div class="text-xs">録音開始</div>
        </button>
     </div>
     <div class="mr-4">
-      <button class="btn btn-outline btn-secondary" id="stop-record-btn" disabled>
+      <button class="btn btn-outline btn-secondary" id="stop-btn">
         <div class="text-xs">録音停止・保存
         </div>
       </button>
@@ -24,24 +27,21 @@
   <div class="text-center text-sm mx-10">
     <div id="status">
       <p>「録音開始」ボタンをクリックして話し始めてください..</p>
-      <p>(文字起こしができない場合は、録音停止→ページを再読み込み→再度録音開始してください)</p>
       <p>※日本語のみに対応</p>
     </div>
-    <div id="real-time-content"></div> <!-- リアルタイムの音声入力表示用 -->
+    <div id="result-div"></div> <!-- リアルタイムの音声入力表示用 -->
   </div>
 
   <div class="text-center text-base font-bold mt-4 mb-4">【音声文字起こし一覧】</div>
-  <%= link_to new_summary_path do %>
     <div class="text-center text-sm text-blue-600 mt-1 mb-4">
       各投稿の文字をクリックすると、編集・削除が可能です。
     </div>
-  <% end %>
     <div class="text-center text-sm mt-1 mb-4">
     ※この文章のあたりを長押しすると、コメント範囲選択+コピーしやすいです。
     </div>
   <div class="flex justify-center mt-4">
       <div class="mr-4 mb-4">
-        <%= link_to new_summary_path do %>
+        <%= link_to new_group_summary_path(@group) do %>
           <button class="btn btn-secondary">
             <div class="text-xs">
               必要な仮メモをコピー後、<br>
@@ -57,7 +57,7 @@
     <% @voices.each do |voice| %>
       <li class="bg-white shadow-md rounded-lg p-4 w-5/6 max-w-md mb-4">
         <div class="mt-2">
-          <%= link_to voice.content, voice_path(voice) %>
+          <%= link_to voice.content, group_voice_path(@group, voice) %>
         </div>
       </li>
     <% end %>
@@ -66,112 +66,71 @@
   <% end %>
 </ul>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
   <script>
-    document.addEventListener("turbo:load", function() {
-      const startButton = document.getElementById('start-record-btn');
-      const stopButton = document.getElementById('stop-record-btn');
-      const status = document.getElementById('status');
-      const realTimeContent = document.getElementById('real-time-content');
-      let recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = 'ja-JP'; // 言語を日本語に設定
-      recognition.interimResults = true; // 中間結果を取得
-      let finalTranscript = ''; // 最終結果を保持する変数
-      let interimTranscript = ''; // 中間結果を保持する変数
-      let isRecording = false; // 録音中かどうかを示すフラグ
+  document.addEventListener('turbo:load', function() {
+    const startBtn = document.querySelector('#start-btn');
+    const stopBtn = document.querySelector('#stop-btn');
+    const resultDiv = document.querySelector('#result-div');
 
-      function resetRecognition() {
-        recognition.onend = null;
-        recognition.onerror = null;
-        recognition.abort(); // 確実に停止させるためにabortを使用
-        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'ja-JP';
-        recognition.interimResults = true;
-        recognition.onresult = handleResult;
-        recognition.onerror = handleError;
-        recognition.onend = handleEnd;
-      }
+    SpeechRecognition = webkitSpeechRecognition || SpeechRecognition;
+    let recognition = new SpeechRecognition();
 
-        startButton.addEventListener('click', function() {
-        finalTranscript = ''; // 新しい録音のためにリセット
-        interimTranscript = ''; // 中間結果をリセット
-        isRecording = true; // 録音開始フラグを設定
-        recognition.start();
-      });
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = true;
+    recognition.continuous = true;
 
-        recognition.onstart = function() {
-        status.textContent = '録音中...(文字起こしができない場合は、録音停止→ページを再読み込み→再度録音開始してください)';
-        startButton.disabled = true;
-        stopButton.disabled = false;
-      };
+    let finalTranscript = ''; // 確定した(黒の)認識結果
 
-        stopButton.addEventListener('click', function() {
-        isRecording = false; // 録音停止フラグを設定
-        recognition.stop();
-      });
-
-      function handleEnd() {
-        if (isRecording) { // 手動で停止されるまで再度開始
-          recognition.start();
+    recognition.onresult = (event) => {
+      let interimTranscript = ''; // 入力中音声の認識結果
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        let transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
         } else {
-          status.textContent = '録音が停止されました';
-          startButton.disabled = false;
-          stopButton.disabled = true;
-          saveVoiceContent(finalTranscript); // 最終結果を保存
+          interimTranscript = transcript;
         }
       }
+      resultDiv.innerHTML = finalTranscript + '<i style="color:#80A1C1;">' + interimTranscript + '</i>';
+    }
 
-      function handleResult(event) {
-        interimTranscript = ''; // 中間結果をリセット
-        for (let i = 0; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript; // 最終結果に追加
-          } else {
-            interimTranscript += transcript; // 中間結果に追加
-          }
-        }
-        realTimeContent.textContent = finalTranscript + interimTranscript; // リアルタイムの内容を表示
-      }
+    startBtn.onclick = () => {
+      finalTranscript = ''; // 新しい録音のためにリセット
+      interimTranscript = ''; // 中間結果をリセット
+      recognition.start();
+      startBtn.disabled = true; // 録音開始ボタンを無効化
+      stopBtn.disabled = false; // 録音停止・保存ボタンを有効化
+    }
 
-      function handleError(event) {
-        status.textContent = `認識中にエラーが発生しました。録音停止ボタンを押してから、ページを再読み込みしてください。: ${event.error}`;
-        if (event.error === 'network') {
-          console.log('ネットワークエラーが発生しました。再試行します...');
-          if (isRecording) {
-            setTimeout(() => recognition.start(), 1000); // 1秒後に再試行
-          }
-        } else {
-          console.log('エラー:', event.error);
-        }
-      }
-
-      recognition.onresult = handleResult;
-      recognition.onerror = handleError;
-      recognition.onend = handleEnd;
-
-      function saveVoiceContent(content) {
-        $.ajax({
-          url: '/voices',
-          type: 'POST',
-          data: { voice: { content: content } },
+    stopBtn.onclick = () => {
+      recognition.stop();
+      startBtn.disabled = false; // 録音開始ボタンを有効化
+      stopBtn.disabled = true; // 録音停止・保存ボタンを無効化
+      if (finalTranscript.trim() !== '') {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        fetch('<%= group_voices_path(@group) %>', {
+          method: 'POST',
           headers: {
-            'X-CSRF-Token': getCsrfToken() },
-          success: function(response) {
-            console.log('音声コンテンツが正常に保存されました');
-            location.reload(); // ページを再読み込みして新しい内容を表示
-            resetRecognition(); // ページリロード後にRecognitionをリセット
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken
           },
-          error: function(response) {
-            console.log('音声コンテンツの保存中にエラーが発生しました');
+          body: JSON.stringify({ voice: { content: finalTranscript } })
+        }).then(response => {
+          if (response.ok) {
+            resultDiv.innerHTML = '音声データが保存されました';
+            setTimeout(() => {
+              window.location.reload(); // 保存後、ページをリロードして新しいデータを表示
+            }, 2000);
+          } else {
+            resultDiv.innerHTML = '音声データの保存に失敗しました';
           }
         });
+      } else {
+        resultDiv.innerHTML = '保存する音声データがありません';
       }
 
-      function getCsrfToken() {
-        return $('meta[name="csrf-token"]').attr('content');
-      }
-    });
+    }
+  });
   </script>
 </body>
 </html>
