@@ -83,7 +83,7 @@
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
         } else {
-          interimTranscript = transcript;
+          interimTranscript += transcript;
         }
       }
       resultDiv.innerHTML = finalTranscript + '<i style="color:#80A1C1;">' + interimTranscript + '</i>';
@@ -98,8 +98,16 @@
     }
 
     stopBtn.onclick = () => {
-      recognition.stop();
-      if (finalTranscript.trim() !== '') {
+    recognition.stop();
+    saveTranscript(finalTranscript + interimTranscript);
+    }
+
+    recognition.onend = () => {
+    saveTranscript(finalTranscript + interimTranscript);
+    }
+
+    function saveTranscript(transcript) {
+      if (transcript.trim() !== '') {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
           fetch('<%= voices_path %>', {
           method: 'POST',
@@ -116,14 +124,16 @@
             }, 200);
           } else {
             resultDiv.innerHTML = '<span style="color:#BF616A;">' + '音声データの保存に失敗しました' + '</span>';
-            startBtn.disabled = false; // 録音開始ボタンを有効化
-            stopBtn.disabled = false; // 録音停止・保存ボタンを有効化
+            setTimeout(() => {
+              window.location.reload(); // 保存後、ページをリロードして新しいデータを表示
+            }, 200);
           }
         });
       } else {
-        resultDiv.innerHTML = '<span style="color:#BF616A;">' + '保存する音声データがありません' + '</span>';
-        startBtn.disabled = false; // 録音開始ボタンを有効化
-        stopBtn.disabled = false; // 録音停止・保存ボタンを有効化
+        resultDiv.innerHTML = '保存する音声データがありません';
+            setTimeout(() => {
+              window.location.reload(); // 保存後、ページをリロードして新しいデータを表示
+            }, 200);
       }
 
     }
