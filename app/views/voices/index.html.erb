@@ -21,10 +21,9 @@
   </div>
 
   <div class="text-center text-sm mx-10">
-    <div id="status">
-      <p>「録音開始」ボタンをクリックして話し始めてください..</p>
+      <p>「録音開始」ボタンをクリックして話し始めてください</p>
       <p>※日本語のみに対応</p>
-    </div>
+    <div id="status"></div><!-- 録音中ステータスの表示 -->
     <div id="result-div"></div> <!-- リアルタイムの音声入力表示用 -->
   </div>
 
@@ -116,11 +115,15 @@
               window.location.reload(); // 保存後、ページをリロードして新しいデータを表示
             }, 200);
           } else {
-            resultDiv.innerHTML = '音声データの保存に失敗しました';
+            resultDiv.innerHTML = '<span style="color:#BF616A;">' + '音声データの保存に失敗しました' + '</span>';
+            startBtn.disabled = false; // 録音開始ボタンを有効化
+            stopBtn.disabled = false; // 録音停止・保存ボタンを有効化
           }
         });
       } else {
-        resultDiv.innerHTML = '保存する音声データがありません';
+        resultDiv.innerHTML = '<span style="color:#BF616A;">' + '保存する音声データがありません' + '</span>';
+        startBtn.disabled = false; // 録音開始ボタンを有効化
+        stopBtn.disabled = false; // 録音停止・保存ボタンを有効化
       }
 
     }
