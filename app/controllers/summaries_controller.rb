@@ -18,26 +18,45 @@ class SummariesController < ApplicationController
   def create
     client = OpenAI::Client.new(access_token: ENV['OPENAI_ACCESS_TOKEN'])
 
-    response = client.chat(
-        parameters: {
-            model: "gpt-3.5-turbo",
-            messages: [
-                { role: "system", content: "私はバンドでリーダーをしています。あなたには私の立場に立って、言葉を要約してメンバーに伝えて欲しいです。バンドメンバーに決定事項を簡潔に伝達するための手助けをしてください。" },
-                { role: "user", content: "以下のコンテンツを、マークダウンでわかりやすくまとめてください。小見出しは必ず番号付きで、番号と小見出し全体を**で囲んで太字にしてください（例：**1. 小見出し**）。小見出しの数が少なすぎないように注意し、内容は箇条書きで簡潔にまとめてください。#{summary_params[:content]}" },
-            ],
-        })
-    # response：ハッシュオブジェクト。OpenAI APIからのレスポンスを格納
-    # dig：Rubyの標準メソッドで、ハッシュや配列のネストされた構造から値を安全に取得するために使用します。存在しないキーを参照した場合でも、エラーを発生させずにnilを返します。
-    # "choices"キーにアクセスして、配列を取得。
-    # 0番目の要素にアクセス。
-    # "message"キーにアクセスして、ハッシュを取得。
-    # "content"キーにアクセスして、その値である "要約されたテキスト" を取得。
-    summary_text = response.dig("choices", 0, "message", "content")
+    input_content = summary_params[:content]
 
-    @summary = current_user.summaries.build(title: summary_params[:title], content: summary_params[:content], summary: summary_text)
+    # 入力内容が10文字以下の場合はそのまま出力
+    if input_content.length < 10
+      summary_text = input_content
+    else
+    response = client.chat(
+      parameters: {
+        model: "gpt-3.5-turbo",
+        messages: [
+            { role: "system",
+            content: "入力された内容を厳密に要約してください。絶対に情報を追加しないでください。質問や推測、対策案、メリット、注意点などは一切追加しないでください。日本語で出力してください。"
+          },
+            { role: "user",
+            content:
+              "以下のコンテンツを、マークダウンでわかりやすくまとめてください。#{input_content}
+              小見出しは必ず番号付きで、番号と小見出し全体を**で囲んで太字にしてください（例：**1. 小見出し**）。
+              小見出しの数が少なすぎないように注意し、内容は箇条書きで簡潔にまとめてください。
+              ただし、入力内容にない情報を追加せず、日本語で出力してください。
+
+              例:
+              #入力
+              衣装の選び方に迷っている、どうしたら良いかな〜〜 バンドの練習日程どうしよう
+
+              #出力
+              **1. 衣装の選び方**
+              - 迷っている
+              **2. バンドの練習日程**
+              - 検討中"
+          },
+        ],
+      })
+    summary_text = response.dig("choices", 0, "message", "content")
+    end
+
+    @summary = @group.summaries.new(title: summary_params[:title], content: summary_params[:content], summary: summary_text, user: current_user)
 
     if @summary.save
-      redirect_to summaries_path, notice: 'メモが保存されました'
+      redirect_to group_summaries_path(@group), notice: 'メモが保存されました'
     else
       flash.now[:alert] = 'メモの保存ができませんでした'
       render :new, status: :unprocessable_entity
