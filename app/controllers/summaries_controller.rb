@@ -53,10 +53,10 @@ class SummariesController < ApplicationController
     summary_text = response.dig("choices", 0, "message", "content")
     end
 
-    @summary = @group.summaries.new(title: summary_params[:title], content: summary_params[:content], summary: summary_text, user: current_user)
+    @summary = current_user.summaries.new(title: summary_params[:title], content: summary_params[:content], summary: summary_text)
 
     if @summary.save
-      redirect_to group_summaries_path(@group), notice: 'メモが保存されました'
+      redirect_to summaries_path, notice: 'メモが保存されました'
     else
       flash.now[:alert] = 'メモの保存ができませんでした'
       render :new, status: :unprocessable_entity
